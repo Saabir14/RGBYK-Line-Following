@@ -3,7 +3,7 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 import os
 
-def process_symbol_recognition(image, lowHSV, highHSV, source):
+def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, source: dict, minSSIM=-1, debug=False) -> tuple[str, cv2.Mat]:
     """
     Process symbol recognition on an image.
 
@@ -71,30 +71,29 @@ def process_symbol_recognition(image, lowHSV, highHSV, source):
             warped = cv2.warpPerspective(mask, M, (output_size, output_size))
 
     # Use image recognition to find the symbol that the warped image most looks like from the source
-    similarities = []
-    for symbol in source:
-        # Convert the symbol to HSV
+    similarities = {}
+    for key, symbol in source.items():
         maskedSymbol = cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lowHSV, highHSV)
-        similarities.append(max(ssim(warped, maskedSymbol := cv2.rotate(maskedSymbol, cv2.ROTATE_90_CLOCKWISE)) for _ in range(4)))
+        similarities[key] = (max(ssim(warped, maskedSymbol := cv2.rotate(maskedSymbol, cv2.ROTATE_90_CLOCKWISE)) for _ in range(4)))
     
-    most_similar_image = source[np.argmax(similarities)]
+    name = max(similarities, key=similarities.get)
+    most_similar_image = source[name]
     
     # Display useful debug info
-    # ---
-    cv2.imshow("Debug", np.hstack((image, cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR), boxed_image, cv2.cvtColor(warped, cv2.COLOR_GRAY2BGR), most_similar_image)))
-    key = cv2.waitKey(0)
+    if debug:
+        cv2.imshow("Debug", np.hstack((image, cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR), boxed_image, cv2.cvtColor(warped, cv2.COLOR_GRAY2BGR), most_similar_image)))
+        key = cv2.waitKey(0)
 
-    # If the 'ESC' key is pressed, close all debug windows
-    if key == 27:
-        cv2.destroyAllWindows()
-    # ---
+        # If the 'ESC' key is pressed, close all debug windows
+        if key == 27:
+            cv2.destroyAllWindows()
 
-    return most_similar_image
+    return (name, most_similar_image) if similarities[name] > minSSIM else (None, None)
 
 if __name__ == "__main__":
     # Test function
     image = cv2.imread("distorted_symbols/Umbrella (Yellow Line).png")
     source_file = "symbols"
 
-    images = [cv2.imread(os.path.join("symbols", image_file_path)) for image_file_path in os.listdir(source_file) if cv2.imread(os.path.join(source_file, image_file_path)) is not None]
-    process_symbol_recognition(image, (140, 100, 100), (180, 255, 255), images)
+    images = {image_file_path: cv2.imread(os.path.join(source_file, image_file_path)) for image_file_path in os.listdir(source_file) if cv2.imread(os.path.join(source_file, image_file_path)) is not None}
+    print("Most Similar Image:", process_symbol_recognition(image, (140, 100, 100), (180, 255, 255), images, debug=True)[0])
