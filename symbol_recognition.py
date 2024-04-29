@@ -4,6 +4,19 @@ from skimage.metrics import structural_similarity as ssim
 import os
 
 def process_symbol_recognition(image, lowHSV, highHSV, source):
+    """
+    Process symbol recognition on an image.
+
+    Args:
+        image (MatLike): The input image.
+        lowHSV (tuple): The lower HSV threshold for color masking.
+        highHSV (tuple): The upper HSV threshold for color masking.
+        source (list): List of source images for symbol comparison.
+
+    Returns:
+        None
+    """
+
     # Mask color
     mask = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), lowHSV, highHSV)
 
@@ -76,12 +89,12 @@ def process_symbol_recognition(image, lowHSV, highHSV, source):
         cv2.destroyAllWindows()
     # ---
 
+    return most_similar_image
+
 if __name__ == "__main__":
-    # Skip UI for debug
-    # ---
+    # Test function
     image = cv2.imread("distorted_symbols/Umbrella (Yellow Line).png")
     source_file = "symbols"
 
     images = [cv2.imread(os.path.join("symbols", image_file_path)) for image_file_path in os.listdir(source_file) if cv2.imread(os.path.join(source_file, image_file_path)) is not None]
     process_symbol_recognition(image, (140, 100, 100), (180, 255, 255), images)
-    # ---
