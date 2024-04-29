@@ -14,7 +14,7 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
         source (list): List of source images for symbol comparison.
 
     Returns:
-        None
+        tuple: The name of the symbol and the most similar image.
     """
 
     # Mask color
