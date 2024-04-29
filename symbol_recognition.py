@@ -52,7 +52,7 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
         warped = cv2.warpPerspective(mask, M, (output_size, output_size))
 
     # Use image recognition to find the symbol that the warped image most looks like from the source
-    similarities = {key: max(ssim(warped, cv2.rotate(cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lowHSV, highHSV), cv2.ROTATE_90_CLOCKWISE)) for _ in range(4)) for key, symbol in source.items()}
+    similarities = {key: max(ssim(warped, cv2.rotate(cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lowHSV, highHSV), (i*90)%360)) for i in range(4)) for key, symbol in source.items()}
 
     name = max(similarities, key=similarities.get)
     most_similar_image = source[name]
