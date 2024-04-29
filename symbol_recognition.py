@@ -20,65 +20,40 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
     # Mask color
     mask = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), lowHSV, highHSV)
 
-    # Find contours in the mask
+    # Find contours in the mask and copy the image
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-
     boxed_image = image.copy()
 
-    # Iterate over the contours
-    for contour in contours:
-        # Approximate the contour to a polygon
-        epsilon = 0.02 * cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, epsilon, True)
+    # Find the largest contour by area
+    largest_contour = max(contours, key=cv2.contourArea)
 
-        # If the polygon has 4 vertices, it is a square
-        if len(approx) == 4:
-            # Draw the contour on the image
-            cv2.drawContours(boxed_image, [approx], -1, (0, 255, 0), 2)
+    # Approximate the contour to a polygon
+    epsilon = 0.02 * cv2.arcLength(largest_contour, True)
+    approx = cv2.approxPolyDP(largest_contour, epsilon, True)
 
-    # Define the size of the output image
-    # hight needs to be the same as the original image if intended to be used with np.hstack()
-    output_size = list(source.values())[0].shape[0]
-    
-    # Iterate over the contours
-    for contour in contours:
-        # Find the largest contour by area
-        largest_contour = max(contours, key=cv2.contourArea)
+    # If the polygon has 4 vertices, it is a square
+    if len(approx) == 4:
+        # Draw the contour on the image
+        cv2.drawContours(boxed_image, [approx], -1, (0, 255, 0), 2)
 
-        # Approximate the contour to a polygon
-        epsilon = 0.02 * cv2.arcLength(largest_contour, True)
-        approx = cv2.approxPolyDP(largest_contour, epsilon, True)
+        # Sort the corners of the contour
+        approx = approx.reshape((4, 2))
+        approx = approx[np.argsort(approx[:, 1])]
 
-        # If the polygon has 4 vertices, it is a square
-        if len(approx) == 4:
-            # Draw the contour on the image
-            cv2.drawContours(boxed_image, [approx], -1, (0, 255, 0), 2)
+        if approx[0, 0] > approx[1, 0]: approx[[0, 1]] = approx[[1, 0]]
+        if approx[2, 0] < approx[3, 0]: approx[[2, 3]] = approx[[3, 2]]
 
-            # Sort the corners of the contour
-            approx = approx.reshape((4, 2))
-            approx = approx[np.argsort(approx[:, 1])]
+        # Define the corners of the output image
+        output_size = list(source.values())[0].shape[0]
+        output_corners = np.array([[0, 0], [output_size - 1, 0], [output_size - 1, output_size - 1], [0, output_size - 1]], dtype='float32')
 
-            if approx[0, 0] > approx[1, 0]:
-                approx[[0, 1]] = approx[[1, 0]]
-
-            if approx[2, 0] < approx[3, 0]:
-                approx[[2, 3]] = approx[[3, 2]]
-
-            # Define the corners of the output image
-            output_corners = np.array([[0, 0], [output_size - 1, 0], [output_size - 1, output_size - 1], [0, output_size - 1]], dtype='float32')
-
-            # Compute the transformation matrix
-            M = cv2.getPerspectiveTransform(approx.astype('float32'), output_corners)
-
-            # Apply the perspective transformation
-            warped = cv2.warpPerspective(mask, M, (output_size, output_size))
+        # Compute the transformation matrix and apply the perspective transformation
+        M = cv2.getPerspectiveTransform(approx.astype('float32'), output_corners)
+        warped = cv2.warpPerspective(mask, M, (output_size, output_size))
 
     # Use image recognition to find the symbol that the warped image most looks like from the source
-    similarities = {}
-    for key, symbol in source.items():
-        maskedSymbol = cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lowHSV, highHSV)
-        similarities[key] = (max(ssim(warped, maskedSymbol := cv2.rotate(maskedSymbol, cv2.ROTATE_90_CLOCKWISE)) for _ in range(4)))
-    
+    similarities = {key: max(ssim(warped, cv2.rotate(cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lowHSV, highHSV), cv2.ROTATE_90_CLOCKWISE)) for _ in range(4)) for key, symbol in source.items()}
+
     name = max(similarities, key=similarities.get)
     most_similar_image = source[name]
     
