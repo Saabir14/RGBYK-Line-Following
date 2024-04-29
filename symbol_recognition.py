@@ -118,4 +118,5 @@ if __name__ == "__main__":
     source_file = "symbols"
 
     images = {image_file_path: cv2.imread(os.path.join(source_file, image_file_path)) for image_file_path in os.listdir(source_file) if cv2.imread(os.path.join(source_file, image_file_path)) is not None}
-    print("Most Similar Image:", process_symbol_recognition(image, (100, 40, 0), (160, 255, 255), images, minSSIM=0.75, debug=True)[0])
+    name, _ = process_symbol_recognition(image, (100, 40, 0), (160, 255, 255), images, 0.75, True)
+    print("Most Similar Image:", name)
