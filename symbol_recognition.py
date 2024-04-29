@@ -11,7 +11,7 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
         image (MatLike): The input image.
         lowHSV (tuple): The lower HSV threshold for color masking.
         highHSV (tuple): The upper HSV threshold for color masking.
-        source (list): List of source images for symbol comparison.
+        source (dict): Dictionary of source images for symbol comparison. All images should be the same size.
 
     Returns:
         tuple: The name of the symbol and the most similar image.
@@ -38,13 +38,16 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
 
     # Define the size of the output image
     # hight needs to be the same as the original image if intended to be used with np.hstack()
-    output_size = image.shape[0]
+    output_size = list(source.values())[0].shape[0]
     
     # Iterate over the contours
     for contour in contours:
+        # Find the largest contour by area
+        largest_contour = max(contours, key=cv2.contourArea)
+
         # Approximate the contour to a polygon
-        epsilon = 0.02 * cv2.arcLength(contour, True)
-        approx = cv2.approxPolyDP(contour, epsilon, True)
+        epsilon = 0.02 * cv2.arcLength(largest_contour, True)
+        approx = cv2.approxPolyDP(largest_contour, epsilon, True)
 
         # If the polygon has 4 vertices, it is a square
         if len(approx) == 4:
@@ -81,7 +84,26 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
     
     # Display useful debug info
     if debug:
-        cv2.imshow("Debug", np.hstack((image, cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR), boxed_image, cv2.cvtColor(warped, cv2.COLOR_GRAY2BGR), most_similar_image)))
+        showPool = (image, mask, boxed_image, warped, most_similar_image)
+
+        # Define a function to add black bars (padding) to an image
+        def add_padding(img, target_size):
+            h, w = img.shape[:2]
+            top = bottom = (target_size[0] - h) // 2
+            left = right = (target_size[1] - w) // 2
+            if (target_size[0] - h) % 2 != 0: bottom += 1
+            if (target_size[1] - w) % 2 != 0: right += 1
+            return cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=[0, 0, 0])
+
+        # Determine the maximum dimensions
+        max_height = max(img.shape[0] for img in showPool)
+        max_width = max(img.shape[1] for img in showPool)
+
+        # Add padding to all images to make them the same size
+        showPool = [add_padding(img, (max_height, max_width)) for img in showPool]
+        showPool = [cv2.cvtColor(img, cv2.COLOR_GRAY2BGR) if img.ndim == 2 else img for img in showPool]
+
+        cv2.imshow("Debug", np.hstack(showPool))
         key = cv2.waitKey(0)
 
         # If the 'ESC' key is pressed, close all debug windows
@@ -92,8 +114,8 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
 
 if __name__ == "__main__":
     # Test function
-    image = cv2.imread("distorted_symbols/Umbrella (Yellow Line).png")
+    image = cv2.imread("distorted_symbols/Circle (Red Line).jpeg")
     source_file = "symbols"
 
     images = {image_file_path: cv2.imread(os.path.join(source_file, image_file_path)) for image_file_path in os.listdir(source_file) if cv2.imread(os.path.join(source_file, image_file_path)) is not None}
-    print("Most Similar Image:", process_symbol_recognition(image, (140, 100, 100), (180, 255, 255), images, debug=True)[0])
+    print("Most Similar Image:", process_symbol_recognition(image, (100, 40, 0), (160, 255, 255), images, minSSIM=0.9, debug=True)[0])
