@@ -3,26 +3,27 @@ import numpy as np
 from skimage.metrics import structural_similarity as ssim
 import os
 
-def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, source: dict, minSSIM=-1, debug=False) -> tuple[str, cv2.Mat]:
+def symbol_recognition(mask: cv2.Mat, source: dict, minSSIM=-1, debug=False) -> str:
     """
     Process symbol recognition on an image.
 
     Args:
-        image (MatLike): The input image.
+        mask (cv2.Mat): The input mask.
         lowHSV (tuple): The lower HSV threshold for color masking.
         highHSV (tuple): The upper HSV threshold for color masking.
-        source (dict): Dictionary of source images for symbol comparison. All images should be the same size.
+        source (dict): Dictionary of source images for symbol comparison. All images should be the same size and already masked.
+        minSSIM (float): The minimum structural similarity index for a match. Default is -1.
+        debug (bool): Whether to display debug information. Default is False.
+        output (str): The desired output format. Options are "name", "image", or "both". Default is "both".
 
     Returns:
-        tuple: The name of the symbol and the most similar image.
+        tuple: The name of the symbol and the most similar image, if output is "both".
+        str: The name of the symbol, if output is "name".
+        cv2.Mat: The most similar image, if output is "image".
     """
-
-    # Mask color
-    mask = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), lowHSV, highHSV)
 
     # Find contours in the mask and copy the image
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    boxed_image = image.copy()
 
     # Find the largest contour by area
     largest_contour = max(contours, key=cv2.contourArea)
@@ -33,9 +34,6 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
 
     # If the polygon has 4 vertices, it is a square
     if len(approx) == 4:
-        # Draw the contour on the image
-        cv2.drawContours(boxed_image, [approx], -1, (0, 255, 0), 2)
-
         # Sort the corners of the contour
         approx = approx.reshape((4, 2))
         approx = approx[np.argsort(approx[:, 1])]
@@ -52,14 +50,18 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
         warped = cv2.warpPerspective(mask, M, (output_size, output_size))
 
     # Use image recognition to find the symbol that the warped image most looks like from the source
-    similarities = {key: max(ssim(warped, cv2.rotate(cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lowHSV, highHSV), (i*90)%360)) for i in range(4)) for key, symbol in source.items()}
+    similarities = {key: max(ssim(warped, cv2.rotate(symbol, (i*90)%360)) for i in range(4)) for key, symbol in source.items()}
 
     name = max(similarities, key=similarities.get)
     most_similar_image = source[name]
     
     # Display useful debug info
     if debug:
-        showPool = (image, mask, boxed_image, warped, most_similar_image)
+        boxed_image = mask.copy()
+        boxed_image = cv2.cvtColor(boxed_image, cv2.COLOR_GRAY2BGR)
+        cv2.drawContours(boxed_image, [approx], -1, (0, 255, 0), 2)
+
+        showPool = (mask, boxed_image, warped, most_similar_image)
 
         # Define a function to add black bars (padding) to an image
         def add_padding(img, target_size):
@@ -85,13 +87,22 @@ def process_symbol_recognition(image: cv2.Mat, lowHSV: tuple, highHSV: tuple, so
         if key == 27:
             cv2.destroyAllWindows()
 
-    return (name, most_similar_image) if similarities[name] > minSSIM else (None, None)
+    return name if similarities[name] >= minSSIM else None
 
 if __name__ == "__main__":
     # Test function
     image = cv2.imread("distorted_symbols/Circle (Red Line).jpeg")
-    source_file = "symbols"
+    if image is None:
+        print("Failed to load image")
+    else:
+        mask = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), (100, 40, 0), (160, 255, 255))
 
-    images = {image_file_path: cv2.imread(os.path.join(source_file, image_file_path)) for image_file_path in os.listdir(source_file) if cv2.imread(os.path.join(source_file, image_file_path)) is not None}
-    name, _ = process_symbol_recognition(image, (100, 40, 0), (160, 255, 255), images, 0.75, True)
+    source_file = "symbols"
+    images = {}
+    for image_file_path in os.listdir(source_file):
+        image = cv2.imread(os.path.join(source_file, image_file_path))
+        if image is not None:
+            images[image_file_path] = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), (100, 40, 0), (160, 255, 255))
+
+    name = symbol_recognition(mask, images, 0.75, True)
     print("Most Similar Image:", name)
