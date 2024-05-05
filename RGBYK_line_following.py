@@ -28,11 +28,18 @@ images = {}
 for image_file_path in os.listdir(source_file):
     image = cv2.imread(os.path.join(source_file, image_file_path))
     if image is not None:
-        images[image_file_path] = cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), (100, 40, 0), (160, 255, 255))
+        images[image_file_path] = np.bitwise_or.reduce([cv2.inRange(cv2.cvtColor(image, cv2.COLOR_BGR2HSV), lower, upper) for lower, upper in color_bounds['p']])
 
+# Ratio of pink needed to start symbol detection
+symbol_start_detection_threshold = .1
+# Crop the frame by a ratio from the top, right, left, and bottom before checking for symbol_start_detection_threshold.
+symbol_start_detection_crop = {'t': .1, 'r': .1, 'l': .1, 'b': .1}
+# Min SSIM for successful symbol recognition
 symbol_detection_threshold = .2
+# Cooldown for symbol detection
+symbol_detection_cooldown = 5
 
-def RGBYK_line_following():
+def RGBYK_line_following() -> None:
     # Initialize the camera.
     cap = cv2.VideoCapture(0)
 
@@ -42,6 +49,18 @@ def RGBYK_line_following():
     # Create a weight matrix where each column is filled with the column index minus half the frame width.
     weights = np.arange(-cap.get(cv2.CAP_PROP_FRAME_WIDTH) // 2, cap.get(cv2.CAP_PROP_FRAME_WIDTH) // 2)
     total = np.sum(weights)
+
+    # Capture a frame.
+    ret, frame = cap.read()
+
+    if not ret:
+        print("Failed to capture a frame.")
+        return
+
+    # Crop the frame by a ratio from the top, right, left, and bottom before checking for symbol_start_detection_threshold.
+    height, width = frame.shape[:2]
+    crop_height_start, crop_height_end = int(height * symbol_start_detection_crop['t']), int(height * 1 - symbol_start_detection_crop['b'])
+    crop_width_start, crop_width_end = int(width * symbol_start_detection_crop['l']), int(width * 1 - symbol_start_detection_crop['r'])
 
     while True:
         # Capture a frame.
@@ -55,12 +74,14 @@ def RGBYK_line_following():
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
         # Check if symbol recognition is needed.
-        pink_mask = np.bitwise_or.reduce([cv2.inRange(hsv, np.array(lower), np.array(upper)) for lower, upper in color_bounds['p']])
-        if np.sum(pink_mask) / (255 * pink_mask.size) > symbol_detection_threshold:
-            color = symbol_recognition(frame, images, .75)
+        pink_mask = np.bitwise_or.reduce([cv2.inRange(hsv[crop_height_start:crop_height_end, crop_width_start:crop_width_end], lower, upper) for lower, upper in color_bounds['p']])
+        if np.sum(pink_mask) / (255 * pink_mask.size) > symbol_start_detection_threshold:
+            if color := symbol_recognition(frame, images, symbol_detection_threshold):
+                # TODO: Add a cooldown for symbol detection
+                ...
 
         # Apply the color bounds.
-        mask = np.bitwise_or.reduce([cv2.inRange(hsv, np.array(lower), np.array(upper)) for lower, upper in color_bounds[color]])
+        mask = np.bitwise_or.reduce([cv2.inRange(hsv, lower, upper) for lower, upper in color_bounds[color]])
 
         # Find the weighted average.
         # w = np.sum(mask[mask != 0] * weights[mask != 0]) / total
@@ -68,8 +89,8 @@ def RGBYK_line_following():
 
         # Write the weighted average to the device.
         bus.write_i2c_block_data(device_address, 0, struct.pack('d', w))
-        ''' If error occurs, such as bytes sent the wrong way, try the following code instead:
-        bus.write_i2c_block_data(device_address, 0, list(struct.pack('<d', w)))
+        ''' If errors occur, such as bytes sent the wrong way, try the following code instead:
+        bus.write_i2c_block_data(device_address, 0, struct.pack('<d', w))
             OR
         bus.write_i2c_block_data(device_address, 0, [ord(c) for c in struct.pack('>d', w)])
         '''
