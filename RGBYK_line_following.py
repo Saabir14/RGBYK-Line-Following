@@ -7,9 +7,6 @@ import time
 
 from symbol_recognition import symbol_recognition
 
-# Initialize the I2C bus.
-bus = SMBus(1)
-
 # Define the device address.
 DEVICE_ADDRESS = 0x04
 
@@ -23,24 +20,26 @@ COLOR_BOUNDS = {
     'p': (np.array([100, 40, 0]), np.array([160, 255, 255])), # pink
 }
 
-# Load the images for symbol recognition.
+# Define the source folder.
 SOURCE_FOLDER = "symbols"
-symbols = {}
-for image_file_path in os.listdir(SOURCE_FOLDER):
-    symbol = cv2.imread(os.path.join(SOURCE_FOLDER, image_file_path))
-    if symbol is not None:
-        symbols[image_file_path] = np.bitwise_or.reduce([cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lower, upper) for lower, upper in COLOR_BOUNDS['p']])
 
 # Ratio of pink needed to start symbol detection
 SYMBOL_START_DETECTION_THRESHOLD = .1
 # Crop the frame by a ratio from the top, right, left, and bottom before checking for symbol_start_detection_threshold.
-SYMBOL_START_DETECTION_CROP = {'t': .1, 'r': .1, 'l': .1, 'b': .1}
+SYMBOL_START_DETECTION_CROP = {'t': .1, 'r': .1, 'b': .1, 'l': .1}
 # Min SSIM for successful symbol recognition
 SYMBOL_DETECTION_THRESHOLD = .2
 # Cooldown for symbol detection
 SYMBOL_DETECTION_COOLDOWN = 5
 
 def RGBYK_line_following() -> None:
+    # Load the images for symbol recognition.
+    symbols = {}
+    for image_file_path in os.listdir(SOURCE_FOLDER):
+        symbol = cv2.imread(os.path.join(SOURCE_FOLDER, image_file_path))
+        if symbol is not None:
+            symbols[image_file_path] = np.bitwise_or.reduce([cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lower, upper) for lower, upper in COLOR_BOUNDS['p']])
+
     # Initialize the camera.
     cap = cv2.VideoCapture(0)
 
@@ -62,6 +61,10 @@ def RGBYK_line_following() -> None:
     height, width = frame.shape[:2]
     crop_height_start, crop_height_end = int(height * SYMBOL_START_DETECTION_CROP['t']), int(height * 1 - SYMBOL_START_DETECTION_CROP['b'])
     crop_width_start, crop_width_end = int(width * SYMBOL_START_DETECTION_CROP['l']), int(width * 1 - SYMBOL_START_DETECTION_CROP['r'])
+    crop_region = np.index_exp[crop_height_start:crop_height_end, crop_width_start:crop_width_end]
+
+    # Initialize the I2C bus.
+    bus = SMBus(1)
 
     tick = time.time()
     while True:
@@ -77,8 +80,8 @@ def RGBYK_line_following() -> None:
 
         # Check if symbol recognition is needed.
         if time.time() - tick > SYMBOL_DETECTION_COOLDOWN:
-            pink_mask = np.bitwise_or.reduce([cv2.inRange(hsv[crop_height_start:crop_height_end, crop_width_start:crop_width_end], lower, upper) for lower, upper in COLOR_BOUNDS['p']])
-            if np.sum(pink_mask) / (255 * pink_mask.size) > SYMBOL_START_DETECTION_THRESHOLD:
+            pink_mask = np.bitwise_or.reduce([cv2.inRange(hsv[crop_region], lower, upper) for lower, upper in COLOR_BOUNDS['p']])
+            if cv2.countNonZero(pink_mask) / pink_mask.size > SYMBOL_START_DETECTION_THRESHOLD:
                 if color := symbol_recognition(frame, symbols, SYMBOL_DETECTION_THRESHOLD):
                     tick = time.time()
 
