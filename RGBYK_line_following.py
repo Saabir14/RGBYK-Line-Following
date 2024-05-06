@@ -72,8 +72,7 @@ def RGBYK_line_following() -> None:
     ret, frame = cap.read()
 
     if not ret:
-        print("Failed to capture first frame.")
-        return
+        raise RuntimeError("Error: Failed to capture first frame")
 
     # Crop the frame by a ratio from the top, right, left, and bottom before checking for symbol_start_detection_threshold.
     height, width = frame.shape[:2]
