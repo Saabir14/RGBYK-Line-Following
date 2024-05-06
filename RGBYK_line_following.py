@@ -37,6 +37,16 @@ SYMBOL_DETECTION_THRESHOLD = .2
 SYMBOL_DETECTION_COOLDOWN = 5
 
 def RGBYK_line_following() -> None:
+    """
+    Perform line following using RGBYK color detection.
+
+    This function initializes the camera, loads symbol images for recognition,
+    captures frames from the camera, applies color detection and symbol recognition,
+    calculates the weighted average of the detected color, and writes the result to a device.
+
+    Returns:
+        None
+    """
     # Load the images for symbol recognition.
     symbols = {}
     for image_file_path in os.listdir(SOURCE_FOLDER):
@@ -108,7 +118,7 @@ def RGBYK_line_following() -> None:
         bus.write_i2c_block_data(device_address, 0, [ord(c) for c in struct.pack('>d', w)])
         '''
 
-        ''' Arduino code to receive and build w
+        ''' Arduino code to receive and build w as double:
         #include <Wire.h>
 
         #define DEVICE_ADDRESS 0x04
