@@ -96,13 +96,17 @@ def RGBYK_line_following() -> None:
         # Convert the frame to HSV.
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-        # Check if symbol recognition is needed.
+        # Check if cooldown has passed.
         if time.time() - tick > SYMBOL_DETECTION_COOLDOWN:
+            # Check if symbol recognition is needed.
             pink_mask = np.bitwise_or.reduce([cv2.inRange(hsv[crop_region], lower, upper) for lower, upper in COLOR_BOUNDS['p']])
             if cv2.countNonZero(pink_mask) / pink_mask.size > SYMBOL_START_DETECTION_THRESHOLD:
+                # Perform symbol recognition.
                 if color := symbol_recognition(frame, symbols, SYMBOL_DETECTION_THRESHOLD):
+                    # Reset the cooldown.
                     tick = time.time()
             else:
+                # Check if the default color should be followed.
                 default_mask = np.bitwise_or.reduce([cv2.inRange(hsv, lower, upper) for lower, upper in COLOR_BOUNDS[DEFAULT_COLOR]])
                 if cv2.countNonZero(default_mask) / default_mask.size > DEFAULT_COLOR_THRESHOLD:
                     color = DEFAULT_COLOR
