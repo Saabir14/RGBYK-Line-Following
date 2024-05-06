@@ -20,6 +20,10 @@ COLOR_BOUNDS = {
     'p': (np.array([100, 40, 0]), np.array([160, 255, 255])), # pink
 }
 
+# Define the default color that will be followed if the threshold amount of that color is seen.
+DEFAULT_COLOR = 'k'
+DEFAULT_COLOR_THRESHOLD = .15
+
 # Define the source folder.
 SOURCE_FOLDER = "symbols"
 
@@ -44,7 +48,7 @@ def RGBYK_line_following() -> None:
     cap = cv2.VideoCapture(0)
 
     # Start color.
-    color = 'k'
+    color = DEFAULT_COLOR
 
     # Create a weight matrix where each column is filled with the column index minus half the frame width.
     weights = np.arange(-cap.get(cv2.CAP_PROP_FRAME_WIDTH) // 2, cap.get(cv2.CAP_PROP_FRAME_WIDTH) // 2)
@@ -84,6 +88,10 @@ def RGBYK_line_following() -> None:
             if cv2.countNonZero(pink_mask) / pink_mask.size > SYMBOL_START_DETECTION_THRESHOLD:
                 if color := symbol_recognition(frame, symbols, SYMBOL_DETECTION_THRESHOLD):
                     tick = time.time()
+            else:
+                default_mask = np.bitwise_or.reduce([cv2.inRange(hsv, lower, upper) for lower, upper in COLOR_BOUNDS[DEFAULT_COLOR]])
+                if cv2.countNonZero(default_mask) / default_mask.size > DEFAULT_COLOR_THRESHOLD:
+                    color = DEFAULT_COLOR
 
         # Apply the color bounds.
         mask = np.bitwise_or.reduce([cv2.inRange(hsv, lower, upper) for lower, upper in COLOR_BOUNDS[color]])
