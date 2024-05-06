@@ -53,7 +53,6 @@ def symbol_recognition(mask: cv2.Mat, source: dict, minSSIM=-1, debug=False) -> 
     similarities = {key: max(ssim(warped, cv2.rotate(symbol, (i*90)%360)) for i in range(4)) for key, symbol in source.items()}
 
     name = max(similarities, key=similarities.get)
-    most_similar_image = source[name]
     
     # Display useful debug info
     if debug:
@@ -61,6 +60,7 @@ def symbol_recognition(mask: cv2.Mat, source: dict, minSSIM=-1, debug=False) -> 
         boxed_image = cv2.cvtColor(boxed_image, cv2.COLOR_GRAY2BGR)
         cv2.drawContours(boxed_image, [approx], -1, (0, 255, 0), 2)
 
+        most_similar_image = source[name]
         showPool = (mask, boxed_image, warped, most_similar_image)
 
         # Define a function to add black bars (padding) to an image
