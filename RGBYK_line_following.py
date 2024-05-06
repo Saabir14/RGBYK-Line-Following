@@ -51,11 +51,15 @@ def RGBYK_line_following() -> None:
     symbols = {}
     for image_file_path in os.listdir(SOURCE_FOLDER):
         symbol = cv2.imread(os.path.join(SOURCE_FOLDER, image_file_path))
-        if symbol is not None:
+        if symbol is None:
+            print(f"Warning: Couldn't read image file {image_file_path}")
+        else:
             symbols[image_file_path] = cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), COLOR_BOUNDS['p'][0], COLOR_BOUNDS['p'][1])
 
     # Initialize the camera.
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        raise RuntimeError("Error: Couldn't open camera")
 
     # Start color.
     color = DEFAULT_COLOR
