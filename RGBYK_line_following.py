@@ -12,12 +12,12 @@ DEVICE_ADDRESS = 0x04
 
 # Define the color boundaries.
 COLOR_BOUNDS = {
-    'r': (np.array([0, 120, 20]), np.array([7, 255, 255]), (np.array([176, 102, 20]), np.array([180, 255, 255]))),  # red
-    'g': (np.array([35, 102, 20]), np.array([80, 255, 255])),  # green
-    'b': (np.array([89, 102, 20]), np.array([125, 255, 255])),  # blue
-    'y': (np.array([17, 102, 20]), np.array([34, 255, 255])),  # yellow
-    'k': (np.array([0, 0, 0]), np.array([180, 102, 120])),  # black
-    'p': (np.array([100, 40, 0]), np.array([160, 255, 255])), # pink
+    'r': ((np.array([0, 120, 20]), np.array([7, 255, 255])), (np.array([176, 102, 20]), np.array([180, 255, 255]))),  # red
+    'g': ((np.array([35, 102, 20]), np.array([80, 255, 255]))),  # green
+    'b': ((np.array([89, 102, 20]), np.array([125, 255, 255]))),  # blue
+    'y': ((np.array([17, 102, 20]), np.array([34, 255, 255]))),  # yellow
+    'k': ((np.array([0, 0, 0]), np.array([180, 102, 120]))),  # black
+    'p': ((np.array([100, 40, 0]), np.array([160, 255, 255]))), # pink
 }
 
 # Define the default color that will be followed if the threshold amount of that color is seen.
