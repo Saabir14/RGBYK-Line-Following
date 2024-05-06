@@ -38,7 +38,7 @@ def RGBYK_line_following() -> None:
     for image_file_path in os.listdir(SOURCE_FOLDER):
         symbol = cv2.imread(os.path.join(SOURCE_FOLDER, image_file_path))
         if symbol is not None:
-            symbols[image_file_path] = np.bitwise_or.reduce([cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), lower, upper) for lower, upper in COLOR_BOUNDS['p']])
+            symbols[image_file_path] = cv2.inRange(cv2.cvtColor(symbol, cv2.COLOR_BGR2HSV), COLOR_BOUNDS['p'][0], COLOR_BOUNDS['p'][1])
 
     # Initialize the camera.
     cap = cv2.VideoCapture(0)
